@@ -150,6 +150,64 @@ class _UNICODE_STRING(ctypes.Structure):
     ]
 
 
+def _setup_win32_signatures():
+    if not _win32_available():
+        return
+    _advapi32.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.LPWSTR)]
+    _advapi32.ConvertSidToStringSidW.restype = wintypes.BOOL
+    _advapi32.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_uint, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    _advapi32.GetTokenInformation.restype = wintypes.BOOL
+    _advapi32.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    _advapi32.OpenProcessToken.restype = wintypes.BOOL
+
+    _iphlpapi.GetExtendedTcpTable.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD), wintypes.BOOL, wintypes.ULONG, ctypes.c_uint, wintypes.DWORD]
+    _iphlpapi.GetExtendedTcpTable.restype = wintypes.DWORD
+
+    _kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    _kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+    _kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    _kernel32.CloseHandle.restype = wintypes.BOOL
+    _kernel32.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+    _kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    _kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    _kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    _kernel32.GetCurrentProcess.argtypes = []
+    _kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    _kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    _kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+    _kernel32.GetProcessTimes.argtypes = [wintypes.HANDLE, ctypes.POINTER(_FILETIME), ctypes.POINTER(_FILETIME), ctypes.POINTER(_FILETIME), ctypes.POINTER(_FILETIME)]
+    _kernel32.GetProcessTimes.restype = wintypes.BOOL
+    _kernel32.GetSystemTimeAsFileTime.argtypes = [ctypes.POINTER(_FILETIME)]
+    _kernel32.GetSystemTimeAsFileTime.restype = None
+    _kernel32.GlobalMemoryStatusEx.argtypes = [ctypes.POINTER(_MEMORYSTATUSEX)]
+    _kernel32.GlobalMemoryStatusEx.restype = wintypes.BOOL
+    _kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    _kernel32.LocalFree.restype = ctypes.c_void_p
+    _kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    _kernel32.OpenProcess.restype = wintypes.HANDLE
+    _kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PROCESSENTRY32W)]
+    _kernel32.Process32FirstW.restype = wintypes.BOOL
+    _kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PROCESSENTRY32W)]
+    _kernel32.Process32NextW.restype = wintypes.BOOL
+    _kernel32.QueryInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_uint, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    _kernel32.QueryInformationJobObject.restype = wintypes.BOOL
+    _kernel32.ReadProcessMemory.argtypes = [wintypes.HANDLE, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t)]
+    _kernel32.ReadProcessMemory.restype = wintypes.BOOL
+    _kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    _kernel32.TerminateJobObject.restype = wintypes.BOOL
+    _kernel32.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    _kernel32.TerminateProcess.restype = wintypes.BOOL
+
+    _ntdll.NtQueryInformationProcess.argtypes = [wintypes.HANDLE, ctypes.c_uint, ctypes.c_void_p, wintypes.ULONG, ctypes.POINTER(wintypes.ULONG)]
+    _ntdll.NtQueryInformationProcess.restype = ctypes.c_long
+
+    _psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+    _psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+
+
+_setup_win32_signatures()
+
+
 def _ft_to_int(ft):
     return (int(ft.dwHighDateTime) << 32) | int(ft.dwLowDateTime)
 

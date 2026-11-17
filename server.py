@@ -3764,12 +3764,20 @@ def _run_console(preferred_port=None, open_browser=True):
 
 
 def redirect_console_output():
-    """在运行目录迁移完成后，将 .app 输出安全追加到 Library Logs。"""
+    """在运行目录迁移完成后，将输出安全追加到日志文件。"""
     path = os.path.join(LOGS_DIR, "console.log")
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    if sysops.IS_WINDOWS:
+        try:
+            f = open(path, "a", encoding="utf-8", buffering=1, errors="replace")
+            sys.stdout = f
+            sys.stderr = f
+        except Exception:
+            pass
+        return
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
-        if not sysops.IS_WINDOWS:
-            os.fchmod(fd, 0o600)
+        os.fchmod(fd, 0o600)
         for stream in (sys.stdout, sys.stderr):
             try:
                 stream.flush()

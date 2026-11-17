@@ -43,6 +43,45 @@ def _run_tray_loop(port_holder):
     ID_OPEN = 1001
     ID_QUIT = 1002
 
+    LRESULT = ctypes.c_ssize_t
+    WNDPROC = ctypes.WINFUNCTYPE(
+        LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
+    )
+
+    user32.DefWindowProcW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    user32.DefWindowProcW.restype = LRESULT
+
+    user32.CreateWindowExW.argtypes = [
+        wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE, wintypes.LPVOID
+    ]
+    user32.CreateWindowExW.restype = wintypes.HWND
+
+    user32.PostQuitMessage.argtypes = [ctypes.c_int]
+    user32.PostQuitMessage.restype = None
+
+    user32.CreatePopupMenu.argtypes = []
+    user32.CreatePopupMenu.restype = wintypes.HMENU
+
+    user32.AppendMenuW.argtypes = [wintypes.HMENU, wintypes.UINT, ctypes.c_size_t, wintypes.LPCWSTR]
+    user32.AppendMenuW.restype = wintypes.BOOL
+
+    user32.TrackPopupMenu.argtypes = [
+        wintypes.HMENU, wintypes.UINT, ctypes.c_int, ctypes.c_int,
+        ctypes.c_int, wintypes.HWND, ctypes.c_void_p
+    ]
+    user32.TrackPopupMenu.restype = wintypes.BOOL
+
+    user32.DestroyMenu.argtypes = [wintypes.HMENU]
+    user32.DestroyMenu.restype = wintypes.BOOL
+
+    user32.GetCursorPos.argtypes = [ctypes.c_void_p]
+    user32.GetCursorPos.restype = wintypes.BOOL
+
+    user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    user32.SetForegroundWindow.restype = wintypes.BOOL
+
     class NOTIFYICONDATAW(ctypes.Structure):
         _fields_ = [
             ("cbSize", wintypes.DWORD),
@@ -59,10 +98,6 @@ def _run_tray_loop(port_holder):
             ("szInfoTitle", wintypes.WCHAR * 64),
             ("dwInfoFlags", wintypes.DWORD),
         ]
-
-    WNDPROC = ctypes.WINFUNCTYPE(
-        ctypes.c_long, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
-    )
 
     class WNDCLASSW(ctypes.Structure):
         _fields_ = [
@@ -85,12 +120,13 @@ def _run_tray_loop(port_holder):
 
     def wnd_proc(hwnd, msg, wparam, lparam):
         if msg == WM_TRAYICON:
-            if lparam == WM_LBUTTONDBLCLK:
+            evt = lparam & 0xFFFF
+            if evt == WM_LBUTTONDBLCLK:
                 open_ui()
-            elif lparam == WM_RBUTTONUP:
+            elif evt == WM_RBUTTONUP:
                 menu = user32.CreatePopupMenu()
-                user32.AppendMenuW(menu, MF_STRING, ID_OPEN, "打开总控台")
-                user32.AppendMenuW(menu, MF_STRING, ID_QUIT, "退出总控台")
+                user32.AppendMenuW(menu, MF_STRING, ID_OPEN, "打开总控台 (Open Local Ops)")
+                user32.AppendMenuW(menu, MF_STRING, ID_QUIT, "退出总控台 (Exit)")
                 pt = wintypes.POINT()
                 user32.GetCursorPos(ctypes.byref(pt))
                 user32.SetForegroundWindow(hwnd)
