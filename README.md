@@ -1,110 +1,152 @@
-# 总控台 (Local Ops)
+# Local Ops (总控台)
 
-**Win & macOS 双平台适配版 · 零依赖 Python 后端 + 原生前端**
+<div align="center">
 
-总控台是面向 **Windows 与 macOS** 的本地服务与批处理任务启动、运行监测工具：把常用项目命令、长期服务和一次性任务集中到本地网页中。后端是 Python 3 标准库实现（纯原生 ctypes API，零第三方依赖），前端是无构建、无 CDN 的原生 HTML/CSS/JavaScript，只绑定本地回环地址。
+**Mission control for local services & batch tasks on Windows & macOS**  
+**Win & macOS 本地服务与批处理任务的指挥台：一键启动、实时监测、日志与进程溯源**
 
-> 总控台只服务当前电脑和当前用户，不是远程运维、多人协作或公网管理面板。它能以当前用户权限执行你保存的命令，请勿通过反向代理、SSH 隧道或端口映射暴露到不受信任的网络。
+[![CI](https://github.com/hming28/local-operation-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/hming28/local-operation-monitor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python: 3.12+](https://img.shields.io/badge/Python-3.12%2B-brightgreen.svg)](https://www.python.org/)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-0%20(Pure%20Stdlib)-orange.svg)](sysops_win32.py)
 
-**📚 文档**：[使用手册](https://github.com/laogou717/local-ops/wiki/使用手册) · [数据与备份](https://github.com/laogou717/local-ops/wiki/数据与备份) · [故障排查](https://github.com/laogou717/local-ops/wiki/故障排查) · [开发者与发布指南](https://github.com/laogou717/local-ops/wiki/开发者与发布指南) · [Wiki 主页](https://github.com/laogou717/local-ops/wiki)
+[English](#english) • [简体中文](#chinese) • [README in Chinese (独立中文文档)](README_zh.md)
 
-## 亮点
+</div>
 
-- **跨平台原生支持**：Windows 10/11 与 macOS 双平台开箱即用，**100% 零第三方 pip 依赖**。
-- **孤儿进程彻底杜绝**：macOS 采用进程组 (`killpg`)，Windows 采用内核级 **Job Objects（作业对象）**，一键干净终止所有子进程树。
-- **进程指纹防复用**：Windows 下增加 `creationTime` 进程创建时间戳双重校验，杜绝 PID 快速复用导致的误杀误管风险。
-- **系统托盘与无黑框常驻**：Windows 下提供 `总控台.pyw`，纯原生 Win32 托盘图标，双击打开控制台，右键托盘优雅退出。
-- **快捷键动态自适应**：前端界面自动根据访客平台自适应展示（Mac 显示 `⌘K` / `⌘J`，Windows 显示 `Ctrl+K` / `Ctrl+J`）。
-- 每 2 秒查看当前用户本地监听服务的 CPU、内存、运行时长与**启动者溯源**（Codex/Claude 等 AI 助手、VS Code/Cursor 等编辑器、终端或总控台）。
-- 选择工作区文件夹后只读识别项目启动命令（Node/pnpm、Hexo、Django/FastAPI、Go、Rust、静态站点等），不安装依赖、不执行项目代码。
+---
 
-## 界面预览
+<a name="english"></a>
+## 🌐 English
 
-以下截图使用脱敏演示数据，不包含真实用户名、目录、命令或服务信息。
+**Local Ops** is a lightweight, zero-dependency mission control web console for local services and batch tasks on **Windows 10/11 and macOS**. It centralizes everyday project commands, long-running services, and one-off batch scripts into a local web dashboard. 
 
-| 启动台 | 服务监控 |
+The backend is built entirely with the Python 3 standard library (using native `ctypes` Win32 API on Windows, zero third-party pip dependencies). The frontend is built with buildless, CDN-free vanilla HTML/CSS/JavaScript and binds strictly to the localhost loopback address.
+
+> **Security Note**: Local Ops is designed exclusively for the current local user on the local machine. It is **not** a remote ops panel or a multi-user management dashboard. It executes commands with your local user privileges. **Do not** expose this service to untrusted networks via reverse proxies, SSH tunnels, or port forwarding.
+
+---
+
+### Highlights
+
+- **Dual-Platform Native Support**: Seamless out-of-the-box experience on both **Windows 10/11** and **macOS 12+**.
+- **100% Zero Third-Party Dependencies**: No `pip install` required. Powered purely by Python standard library and native OS APIs (`ctypes.windll` on Windows, POSIX syscalls on macOS).
+- **Clean Process Lifecycle (No Orphan Processes)**:
+  - **macOS**: Controlled process groups via `killpg`.
+  - **Windows**: Kernel-level **Job Objects** tie all parent and spawned child processes together, ensuring `TerminateJobObject` terminates the entire tree with zero leftover zombie ports or orphan processes.
+- **PID Reuse Mitigation**: Windows process tracking checks process creation timestamps (`creationTime`) to avoid misidentifying or terminating unrelated processes after rapid PID recycling.
+- **Silent Background Tray Runner (`总控台.pyw`)**: Run silently on Windows without a black CMD window. Includes a pure Win32 system tray icon: double-click to open the dashboard, right-click to exit.
+- **Adaptive Keyboard Shortcuts**: Keyboard shortcut labels adapt automatically depending on the visitor's OS (`⌘K` / `⌘J` on macOS, `Ctrl+K` / `Ctrl+J` on Windows/Linux).
+- **Live Process Monitoring & Provenance**: Inspect CPU, memory, uptime, and **launcher provenance** (AI assistants like Claude/Codex, IDEs like VS Code/Cursor/Trae, terminals, or the console itself) for listening ports every 2 seconds.
+- **Read-Only Project Detection**: Select a folder to automatically detect runnable scripts and project types (Node/pnpm, Hexo, FastAPI, Django, Go, Rust, static servers, etc.) without executing unverified code.
+
+---
+
+### UI Preview
+
+The screenshots below use sanitized demo data and contain no sensitive user info, paths, or live tokens.
+
+| Launchpad (启动台) | Service Monitor (服务监控) |
 | --- | --- |
-| ![Ops 指挥台 · 启动台](docs/screenshots/ops-launchpad.jpg) | ![Ops 指挥台 · 服务监控](docs/screenshots/ops-services.jpg) |
+| ![Ops Launchpad](docs/screenshots/ops-launchpad.jpg) | ![Ops Service Monitor](docs/screenshots/ops-services.jpg) |
 
-## 快速开始
+---
 
-**系统要求**：Windows 10/11 或 macOS 12+，Python 3.12+，支持 ES Modules 的现代浏览器。无需安装任何第三方 pip 包。
+### Quick Start
 
-### Windows 启动方式
+**Prerequisites**: Windows 10/11 or macOS 12+, Python 3.12 or higher, and any modern web browser supporting ES Modules.
 
-| 方式 | 操作 | 适用场景 |
-| --- | --- | --- |
-| **后台托盘常驻（推荐）** | 双击 `总控台.pyw` | 日常使用。无控制台黑框，系统任务栏右下角生成托盘图标 |
-| **控制台脚本** | 双击 `start.bat` | 想在命令行窗口中实时查看启动日志与运行状态 |
-| **命令行启动** | `python server.py [--no-browser] [--preferred-port 9600]` | 终端或脚本化调试启动 |
+#### On Windows
 
-### macOS 启动方式
+| Method | Action | Use Case |
+| :--- | :--- | :--- |
+| **System Tray (Recommended)** | Double-click `总控台.pyw` | Everyday use. Runs silently in background with system tray icon. |
+| **Console Batch** | Double-click `start.bat` | View live startup logs and console output directly in CMD. |
+| **Command Line** | `python server.py [--no-browser] [--preferred-port 9600]` | Terminal automation or custom scripting. |
 
-| 方式 | 操作 | 适用场景 |
-| --- | --- | --- |
-| 双击应用 | 双击 `总控台.app` | 日常使用。后台运行，无 Terminal 窗口和 Dock 图标 |
-| 双击脚本 | 双击 `start.command` | 想在 Terminal 里看实时输出 |
-| 命令行 | `python3 server.py [--no-browser] [--preferred-port 9600]` | 调试或命令行启动 |
+#### On macOS
 
-首次在 macOS 打开互联网下载的 `总控台.app`，如提示隔离，请执行 `xattr -dr com.apple.quarantine "总控台.app"` 即可。
+| Method | Action | Use Case |
+| :--- | :--- | :--- |
+| **App Bundle** | Double-click `总控台.app` | Everyday use. Runs in the background without a terminal window. |
+| **Command Script** | Double-click `start.command` | View live stdout/stderr in a Terminal window. |
+| **Command Line** | `python3 server.py [--no-browser] [--preferred-port 9600]` | Command line debugging or scripting. |
 
-启动后自动在默认浏览器中打开 `http://127.0.0.1:9600`（端口被占时自动递增到 9601–9609）。
+*Note for macOS users*: If downloaded from GitHub and macOS displays a quarantine prompt, run `xattr -dr com.apple.quarantine "总控台.app"` once.
 
-## 使用
+Once launched, Local Ops will automatically open in your default browser at `http://127.0.0.1:9600` (falls back to 9601–9609 if port 9600 is busy).
 
-左侧导航轨切换「启动台 / 服务监控」，右侧信息栏展示实时动态；所有数据每 2 秒自动刷新，断连时显示横幅提示。
+---
 
-- **启动台**：点「+ 添加服务」选择工作区，自动识别项目并给出候选命令（也可「选择脚本」或手动填写）；卡片大按钮启停（任务是运行/中止），右侧常显复制/日志/诊断/重启/编辑/删除；支持拖拽排序、键盘排序、分区筛选与批量停止。
-- **服务监控**：概览卡 + 服务表格；页面打开期间新出现的未管理监听端口会单独提醒，可「加入启动台」（自动识别项目并原子认领进程）、「忽略并隐藏」或「暂时关闭」。
-- **日志中心（⌘J）/ 设置中心 / 命令面板（⌘K）**：从导航轨或快捷键进入；命令面板支持全局搜索与全键盘操作。
-- 红色按钮会结束进程或删除应用，需要二次确认。顶栏「重启 / 停止」控制的是总控台自身，**不会**停止启动台里已经运行的应用——它们是独立进程组，会继续运行。
-- 选择批处理脚本时，总控台只保存脚本的绝对路径和生成的执行命令，不复制或托管脚本内容；脚本移动、改名或删除后任务会失效。
+### Usage & Features
 
-任务退出码约定：自然退出 `0` = 成功，其他非零 = 失败；脚本内用户主动取消请退出 `130`（显示「已取消」）；总控台按钮主动中止显示为「已中止」。此约定只用于 `task`，长期服务仍按普通退出处理。
+- **Launchpad**: Click "+ Add Service" to pick a project workspace folder. The console auto-detects common frameworks and suggests start commands. Cards feature large start/stop buttons, log viewers, diagnostics, restart, and drag-and-drop or keyboard-accessible reordering.
+- **Service Monitoring**: Real-time process table showing CPU, memory, uptime, listening ports, and launcher origin. Unrecognized listening ports prompt quick-add or ignore actions.
+- **Global Command Palette**: Press `Ctrl+K` (Windows/Linux) or `⌘K` (macOS) to launch commands, search services, or switch views.
+- **Live Logs Center**: Press `Ctrl+J` (Windows/Linux) or `⌘J` (macOS) to inspect stdout/stderr logs across all services.
+- **Task Exit Code Conventions**: For one-off batch tasks: exit code `0` = Succeeded; non-zero = Failed; user-cancelled via Ctrl+C = `130` / `0xC000013A` (displays as "Canceled").
 
-分区与表格细节、关注进程、基线规则、停止与重启语义等完整说明见 Wiki「[使用手册](https://github.com/laogou717/local-ops/wiki/使用手册)」。
+---
 
-## 安全边界
+### Security Boundaries
 
-- 只添加你已检查且信任的命令和工作目录；总控台能以当前用户权限执行保存的 shell 命令。
-- 不要将服务绑定到 `0.0.0.0`，不要通过反向代理、SSH 隧道或端口映射对外暴露；不要在共享或不受信任的用户账户中运行。
-- 不要把 `~/Library/Application Support/总控台/config.json`、日志或故障截图未经脱敏就上传。
-- 本地回环绑定只是第一层边界，不能替代写接口的 Host/Origin/控制令牌防护；发布验收必须执行 [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) 中的安全项。
+1. Only add commands and working directories you trust. The console runs commands with your full local user permissions.
+2. Bind only to `127.0.0.1`. Never bind to `0.0.0.0` or expose the port to untrusted local networks or the public internet.
+3. Keep your configuration (`config.json`) and logs private. Sanitize any screenshots or error reports before sharing.
 
-## 维护说明
+---
 
-总控台由作者个人维护：功能的新增、修改与完善以作者日常使用中的实际需求为准，迭代节奏不定；PR 不承诺审阅或合入。
+<a name="chinese"></a>
+## 🇨🇳 简体中文
 
-如果你希望增加功能、修复问题或适配其他平台，欢迎 **Fork 本仓库自行修改**，并在 Discussions 中提交衍生版本说明。经过试用评估后，优秀的衍生版本会收录到下方 [社区衍生版本](#社区衍生版本) 列表推荐给大家；衍生版本由各自作者维护，未经原作者审阅或测试，使用前请自行评估。
+**总控台 (Local Ops)** 是一款专为 **Windows 10/11 与 macOS** 设计的轻量级本地服务与批处理任务指挥中心。它将日常开发常用的项目命令、长期服务和一次性脚本统一集成到一个清爽的本地网页控制台中。
 
-## 社区衍生版本
+后端基于纯 Python 3 标准库（Windows 下使用原生 `ctypes` 调用 Win32 API，**100% 零第三方 pip 依赖**）；前端采用无打包构建、无 CDN 依赖的原生 HTML/CSS/JavaScript，仅绑定本机回环地址 (`127.0.0.1`)。
 
-以下衍生版本由社区贡献者各自维护，未经原作者审阅或测试，收录仅作推荐。提交新衍生版本或更新说明，请前往 Discussions。
+> **安全须知**：总控台只服务当前电脑和当前登录用户，并非远程运维或多人管理平台。它会以当前用户的系统权限执行所配置的命令，请勿通过反向代理、SSH 隧道或公网端口映射暴露到不受信任的网络。
 
-| 衍生版本 | 说明 | 出处 |
-| --- | --- | --- |
-| Windows 10/11 适配（双平台运行） | 共享代码 + 平台分支收敛，不新增运行时依赖，含 Windows 专属测试与 CI | PR [#2](https://github.com/laogou717/local-ops/pull/2)（dontpanic1） |
-| Windows 11 安全优先移植（Draft） | Job Objects、签名回执、CREATE_SUSPENDED 等更严格的进程所有权模型，含打包体系 | PR [#3](https://github.com/laogou717/local-ops/pull/3)（songconmaisaix31-design） |
-| Windows 后端 `server_win.py` | 独立 Windows 后端（纯标准库），复用本仓库前端 | PR [#4](https://github.com/laogou717/local-ops/pull/4)（Hexvork） |
-| sysops.py 跨平台抽象层方案 | psutil 唯一新增依赖，macOS 分支零改动，作者已在日常使用 | [Issue #1 提案](https://github.com/laogou717/local-ops/issues/1)（FL411） |
+---
 
-## 参与贡献
+### 功能亮点
 
-**推荐路径（不需要等待审阅）**：
+- **双平台原生支持**：Windows 10/11 与 macOS 双平台开箱即用，**无须安装任何第三方 pip 库**。
+- **孤儿进程彻底杜绝**：
+  - **macOS**：采用 POSIX 进程组 (`killpg`)；
+  - **Windows**：采用内核级 **Job Objects（作业对象）**，停止应用时一键终止整个进程树，彻底杜绝后台残留孤儿进程和占用端口的问题。
+- **PID 防复用机制**：Windows 进程快照增加 `creationTime` 进程创建时间戳双重校验，杜绝 PID 快速回收复用带来的误判与误杀风险。
+- **系统托盘后台常驻 (`总控台.pyw`)**：Windows 专属纯原生 Win32 托盘启动器，后台静默运行无 CMD 黑窗口，双击托盘打开控制台，右键托盘安全退出。
+- **快捷键智能自适应**：前端界面自动识别访客操作系统（Mac 显示 `⌘K` / `⌘J`，Windows 显示 `Ctrl+K` / `Ctrl+J`）。
+- **进程监控与来源溯源**：每 2 秒实时刷新所有本地监听服务的 CPU、内存、运行时长，并智能识别启动者来源（VS Code、Cursor、Trae、Claude、终端等）。
+- **项目只读智能识别**：选择工作区文件夹后自动识别项目类型并生成启动命令（Node/pnpm、Hexo、FastAPI、Django、Go、Rust 等），不执行任何未受信任的代码。
 
-1. Fork 本仓库，自行开发并长期维护自己的版本；
-2. 阅读 [CONTRIBUTING.md](CONTRIBUTING.md)——安全校验不得削弱（回环绑定、当前 UID、run token、进程组）、一个 PR 只解决一个主题、提交前运行 `make check`、不提交个人路径/日志/未脱敏素材；
-3. 在 Discussions 提交衍生版本说明（名称、定位、fork 地址）；
-4. 经试用评估后，收录到上方「社区衍生版本」推荐列表。
+---
 
-Issue 与 PR 同样可以提交，欢迎讨论与参考，但不承诺审阅或合入（见「维护说明」）。行为规范见 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)；安全问题请按 [`SECURITY.md`](SECURITY.md) 私下报告，不要公开披露。
+### 快速开始
 
-## 更多文档
+**运行要求**：Windows 10/11 或 macOS 12+，Python 3.12 或更高版本，支持 ES Modules 的现代浏览器。无需安装任何额外依赖。
 
-- [Wiki 主页](https://github.com/laogou717/local-ops/wiki)：[使用手册](https://github.com/laogou717/local-ops/wiki/使用手册) / [数据与备份](https://github.com/laogou717/local-ops/wiki/数据与备份) / [故障排查](https://github.com/laogou717/local-ops/wiki/故障排查) / [开发者与发布指南](https://github.com/laogou717/local-ops/wiki/开发者与发布指南)
-- [`CHANGELOG.md`](CHANGELOG.md) — 变更记录
-- [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md) — 发布人工验收清单
+#### Windows 启动
 
-## 许可与第三方素材
+| 启动方式 | 操作 | 适用场景 |
+| :--- | :--- | :--- |
+| **后台托盘常驻（推荐）** | 双击 `总控台.pyw` | 日常使用。无控制台黑框，系统右下角生成托盘图标 |
+| **控制台脚本** | 双击 `start.bat` | 实时查看命令行输出日志与启动信息 |
+| **命令行启动** | `python server.py [--no-browser] [--preferred-port 9600]` | 终端或脚本化自定义启动 |
 
-项目自有代码和文档采用 [`MIT License`](LICENSE)。Lucide、Geist Mono 以及项目生成图像等素材可能适用各自的许可或发布限制，不因根目录 MIT 许可证而自动改变，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 与 [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md)。
+#### macOS 启动
+
+| 启动方式 | 操作 | 适用场景 |
+| :--- | :--- | :--- |
+| **双击应用** | 双击 `总控台.app` | 日常使用。后台静默运行，无 Terminal 窗口和 Dock 图标 |
+| **双击脚本** | 双击 `start.command` | 在 Terminal 窗口中实时查看输出 |
+| **命令行** | `python3 server.py [--no-browser] [--preferred-port 9600]` | 终端或脚本启动 |
+
+启动后自动在浏览器中打开 `http://127.0.0.1:9600`（若被占用自动顺延至 9601–9609）。
+
+---
+
+### 许可与致谢
+
+- 本项目自有代码与文档采用 [MIT 许可证](LICENSE)。
+- 界面图标及素材许可详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 与 [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md)。
+- 感谢原项目 [laogou717/local-ops](https://github.com/laogou717/local-ops) 提供的优秀设计思路。

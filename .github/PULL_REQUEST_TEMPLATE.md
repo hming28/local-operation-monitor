@@ -1,33 +1,23 @@
-## 变更目的
+## Purpose / 变更目的
 
-<!-- 说明要解决的问题、用户场景和为什么需要这次改动。 -->
+<!-- Explain the problem solved, user scenarios, and why this change is needed. / 说明要解决的问题、用户场景和改动原因。 -->
 
-## 主要改动
+## Summary of Changes / 主要改动
 
-<!-- 用简短列表说明实现范围；不要夹带无关变更。 -->
+<!-- Concise list of changes made. Avoid unrelated edits. / 简要说明改动范围，避免夹带无关变更。 -->
 
-## 验证
+## Verification & Tests / 验证与测试
 
-<!-- 列出实际执行的命令和手工流程，例如 `make check`。 -->
+<!-- List commands executed and manual tests performed. / 列出执行过的命令与测试。 -->
 
-- [ ] `make check`
-- [ ] 涉及发行范围、许可或打包时已运行 `make release-check`
-- [ ] UI 变化已检查相关主题、明暗模式和窄屏
-- [ ] 进程/配置变化已覆盖失败、升级和回退路径
-- [ ] 已更新 `CHANGELOG.md` 的 `Unreleased`，或已在说明中写明不适用
+- [ ] `python -m unittest discover -s tests -v` (Windows / Cross-platform)
+- [ ] `make check` (macOS)
+- [ ] UI changes verified across themes (light/dark) and viewport sizes / 界面与明暗主题已验证
+- [ ] Process/configuration changes handle failure and upgrade paths / 进程与配置异常路径已覆盖
 
-## 安全、隐私与素材
+## Security & Privacy / 安全与隐私
 
-- [ ] 没有提交 `data/`、Application Support、Library Logs、凭据、token、个人绝对路径或真实用户命令
-- [ ] 截图、录屏、日志和示例已经脱敏
-- [ ] 没有削弱回环绑定、写接口授权、当前 UID 或受控进程身份校验
-- [ ] 新增/替换素材已更新 `ASSET_PROVENANCE.md`；必要时同步 `THIRD_PARTY_NOTICES.md` 和许可原文
-- [ ] 发行范围内没有 `BLOCKED` 或 `TO_REPLACE` 素材
-
-## 兼容性与回退
-
-<!-- 说明配置 schema、数据迁移、macOS/Python 要求及安全回退方式；不适用请写“无”。 -->
-
-## 截图或证据
-
-<!-- 仅附脱敏内容；不要上传 config.json 或完整日志。 -->
+- [ ] No personal tokens, paths, real commands, or sensitive logs submitted / 未夹带个人路径、Token、凭证或真实命令
+- [ ] Screenshots, logs, and traces are sanitized / 截图与日志已完成脱敏
+- [ ] Loopback binding, user ID/SID isolation, and run token checks preserved / 安全校验未被削弱
+- [ ] Zero third-party runtime dependencies maintained / 保持 100% 零第三方运行时依赖

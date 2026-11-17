@@ -1,91 +1,83 @@
-# 参与贡献
+# Contributing to Local Ops / 参与贡献
 
-感谢你帮助改进总控台。项目仍处于 Preview / Alpha 阶段，优先接受范围清晰、可验证且不扩大安全边界的改动。
+[English](#english) • [简体中文](#chinese)
 
-> **维护立场**：本仓库由作者个人维护，PR 不承诺审阅或合入。希望增加功能、适配其他平台的朋友，请优先 Fork 自行修改，并在 Discussions 提交衍生版本说明（详见 README 的「维护说明」与「社区衍生版本」）。以下规范供提交讨论与 Fork 开发参考。
+---
 
-## 开始之前
+<a name="english"></a>
+## 🌐 English
 
-1. 先搜索已有 Issue 和 Pull Request，避免重复工作。
-2. 较大的功能、配置 schema 变化、进程管理策略或 UI 主题调整，请先开 Issue 说明动机、用户场景和兼容性影响。
-3. 安全漏洞不要公开讨论，按 [`SECURITY.md`](SECURITY.md) 私下报告。
-4. 不要提交本机 `data/`、Application Support、Library Logs、个人路径、完整命令、token、用户图标或未脱敏截图。
+Thank you for contributing to Local Ops! The project is currently in the Preview / Alpha phase. We welcome well-scoped, verifiable contributions that maintain our zero-dependency philosophy and strictly preserve security boundaries.
 
-## 开发环境
+### Before You Begin
 
-- macOS 12 或更高版本；
-- Python 3.12；
-- Node.js，仅用于 JavaScript 语法检查；
-- 运行时无第三方 Python 依赖。
+1. **Search existing Issues and Pull Requests** to avoid duplicate effort.
+2. For large features, configuration schema updates, process management strategy changes, or major UI overhauls, please open an Issue first to discuss user scenarios and compatibility implications.
+3. **Do not disclose security vulnerabilities publicly**. Follow [`SECURITY.md`](SECURITY.md) to report them privately.
+4. **Never submit** local `data/`, local configuration files, personal absolute paths, authentication tokens, live credentials, or unsanitized log outputs.
 
-只有重新生成纹理时才需要开发依赖：
+### Development Environment
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install -r requirements-dev.txt
-```
+- Windows 10/11 or macOS 12+;
+- Python 3.12 or newer;
+- Node.js (used solely for JavaScript linting/syntax checks);
+- **Zero runtime dependencies**: Pure standard library and native OS APIs only.
 
-## 修改原则
+### Core Principles
 
-- 后端保持 Python 标准库实现；前端保持原生 ES Modules、无 CDN、无构建。
-- 不得削弱回环绑定、当前 UID、run token、进程组、Host/Origin 或控制令牌等安全校验。
-- 不得按端口直接结束未知进程。
-- 配置变更必须有明确 `schemaVersion`、幂等迁移和升级测试。
-- DOM 列表应按 key 原地更新，避免轮询造成整表闪烁。
-- 危险操作必须有明确确认。
-- 修改 `static/icons/*.svg` 后运行 `make generate-icons`，不要手改 `static/icons.js`。
+- **Zero Runtime Dependencies**: The backend must remain pure Python standard library + native ctypes. The frontend must remain vanilla ES Modules with no build steps and no CDN dependencies.
+- **Strict Security Verification**: Never weaken loopback binding, current user ID/SID isolation, run tokens, process group/Job Object controls, or origin checks.
+- **Safe Process Termination**: Never kill arbitrary processes solely by port matching. Always verify ownership and run tokens.
+- **Idempotent Configuration**: Any schema change must include a clear `schemaVersion` and idempotent migration tests.
 
-## 素材与许可
+### Running Checks
 
-新增或替换字体、Logo、App Icon、favicon、插画、照片、纹理、声音等素材时，Pull Request 必须同时：
-
-1. 更新 [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md)；
-2. 记录来源、作者/生成方式、版本、修改过程、许可、SHA-256 和凭证位置；
-3. 需要时更新 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 并随包加入许可原文；
-4. 确认素材状态不是 `BLOCKED` 或 `TO_REPLACE`。
-
-只有“网上可下载”“AI 生成”或“免费使用”的说明不足以证明可随开源项目再分发。
-
-## 检查
-
-提交前运行：
+Before submitting, run:
 
 ```bash
+# On Windows
+python -m unittest discover -s tests -v
+
+# On macOS
 make check
 ```
 
-涉及发行范围、许可证、静态资源或打包逻辑时，再运行：
+---
+
+<a name="chinese"></a>
+## 🇨🇳 简体中文
+
+感谢你参与改进总控台！项目当前处于 Preview / Alpha 阶段，优先接受范围清晰、可验证且不扩大安全边界的改动。
+
+### 开始之前
+
+1. 先搜索已有 Issue 和 Pull Request，避免重复工作。
+2. 较大的功能、配置 schema 变化、进程管理策略或 UI 主题调整，请先开 Issue 说明动机、用户场景和兼容性影响。
+3. 安全漏洞切勿公开讨论，请按 [`SECURITY.md`](SECURITY.md) 私下报告。
+4. 切勿提交本机 `data/`、个人路径、完整命令、Token、凭证或未脱敏截图。
+
+### 开发环境
+
+- Windows 10/11 或 macOS 12+；
+- Python 3.12 或更高版本；
+- Node.js（仅用于前端 JS 语法检查）；
+- 运行时零第三方 Python 依赖。
+
+### 修改原则
+
+- 后端严格保持 Python 标准库与系统原生 API 实现；前端保持原生 ES Modules，无 CDN，无构建打包。
+- 不得削弱回环绑定、当前 UID/SID 隔离、run token、Job Object / 进程组、Host/Origin 等安全校验。
+- 不得按端口直接结束未知进程，必须严格校验进程归属。
+- 配置变更必须具备明确的 `schemaVersion` 与幂等迁移测试。
+
+### 提交前检查
+
+提交前请运行单元测试：
 
 ```bash
-make release-check
+# Windows 环境
+python -m unittest discover -s tests -v
+
+# macOS 环境
+make check
 ```
-
-Pull Request 应说明：
-
-- 改了什么、为什么；
-- 用户可见影响和风险；
-- 执行过的检查及结果；
-- 必要的手工验收步骤；
-- 是否影响配置、数据、进程生命周期、素材许可或发布范围。
-
-## 变更记录
-
-- 用户可感知的功能、修复、安全或兼容性变化必须写入
-  [`CHANGELOG.md`](CHANGELOG.md) 的 `Unreleased`。
-- 使用 `Added`、`Changed`、`Fixed`、`Removed` 或 `Security`
-  描述用户结果，不记录实现步骤。
-- 纯缓存清理、过期本地构建产物和不影响行为的内部重构不必写入；
-  Pull Request 中应说明为什么不适用。
-- 发布时将 `Unreleased` 中的内容移动到对应版本和发布日期，并重新保留空的
-  `Unreleased` 章节。
-
-## Commit 与 Pull Request
-
-- 使用简洁、可追溯的 commit；不要使用占位邮箱或伪造作者身份。
-- 一个 Pull Request 尽量只解决一个主题。
-- 不重写他人的历史，不夹带无关格式化或生成文件。
-- 如果 UI 有变化，提供不含个人路径和真实服务信息的脱敏截图。
-- 贡献即表示你有权提交该内容，并同意项目按根目录 `LICENSE` 及对应素材许可分发。
-
-所有参与者都应遵守 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)。

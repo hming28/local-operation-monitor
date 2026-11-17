@@ -1,44 +1,76 @@
-# 安全政策
+# Security Policy / 安全政策
 
-总控台会以当前 macOS 用户的权限执行用户保存的 shell 命令，并提供启动、停止和结束本地进程的接口。请把命令执行、身份校验、写接口授权、路径处理、配置完整性和敏感信息泄露问题视为高影响安全问题。
+[English](#english) • [简体中文](#chinese)
 
-## 支持范围
+---
 
-项目仍处于 Preview / Alpha 阶段。安全修复优先面向默认分支和最新发布版本；旧版本是否继续支持会在对应发行说明中注明。尚未发布的本地开发提交不承诺兼容修复。
+<a name="english"></a>
+## 🌐 English
 
-## 私下报告漏洞
+Local Ops executes user-configured shell commands with the privileges of the currently logged-in OS user and provides APIs to start, monitor, and terminate local processes. Please treat command execution, identity verification, write-endpoint authorization, path traversal prevention, configuration integrity, and data leakage prevention as critical security concerns.
 
-请优先使用 GitHub 仓库 **Security → Report a vulnerability** 提交私密报告。公开仓库建立后，维护者必须先启用 GitHub Private Vulnerability Reporting，再对外发布版本。
+### Supported Versions
 
-如果私密报告入口暂不可用，请不要在公开 Issue、讨论区或 Pull Request 中披露漏洞细节。请通过仓库所有者 GitHub 个人资料中已经验证的联系方式，只发送“不含漏洞细节、请求建立私密通道”的简短消息；在私密通道确认前不要附带复现代码、日志、配置或路径。
+The project is currently in the Preview / Alpha stage. Security fixes are applied primarily to the default `main` branch and the latest releases.
 
-一份有用的私密报告应包含：
+### Reporting a Vulnerability
 
-- 受影响版本或 commit；
-- macOS 与 Python 版本；
-- 影响范围和攻击前提；
+Please report security issues privately via **GitHub Security Advisories (Security → Report a vulnerability)**. 
+
+If private vulnerability reporting is unavailable, please contact the maintainer through the verified contact method on the GitHub profile with a brief message requesting a secure channel. **Do not** disclose vulnerability details in public issues, discussions, or pull requests.
+
+A useful report should include:
+- Affected versions or commits;
+- OS (Windows / macOS) and Python versions;
+- Impact and attack prerequisites;
+- Minimal reproduction steps;
+- Expected vs. actual behavior;
+- Sanitized logs or request traces.
+
+### Required Redactions
+
+Never submit raw sensitive data:
+- `config.json` or local configuration paths;
+- Log files under `%LOCALAPPDATA%\总控台\Logs` or `~/Library/Logs/总控台/`;
+- Full shell commands, personal paths, or usernames;
+- PIDs, process run tokens, authentication tokens, or environment variables.
+
+### Project Security Boundaries
+
+- The HTTP server must bind **strictly to `127.0.0.1`** (loopback address only). Never expose it directly or indirectly to the local network or internet.
+- This is a single-user local tool, not a multi-tenant or remote administration panel.
+- Only trusted local users should add and run commands.
+
+---
+
+<a name="chinese"></a>
+## 🇨🇳 简体中文
+
+总控台会以当前操作系统登录用户的权限执行用户配置的命令，并提供启动、监控和结束本地进程的接口。请把命令执行、身份校验、写接口授权、路径处理、配置完整性和敏感信息保护视为高影响安全问题。
+
+### 支持范围
+
+项目处于 Preview / Alpha 阶段，安全修复优先面向默认 `main` 分支和最新发布版本。
+
+### 私下报告漏洞
+
+请优先使用 GitHub 仓库的 **Security → Report a vulnerability** 提交私密安全报告。切勿在公开 Issue、讨论区或 Pull Request 中披露未修复的漏洞细节。
+
+一份有用的安全报告应包含：
+- 受影响的版本或 Commit；
+- 操作系统版本与 Python 版本；
+- 影响范围与复现前提；
 - 最小化复现步骤；
-- 预期行为与实际行为；
-- 已完成脱敏的相关日志或请求；
-- 你认为安全的修复方向（可选）。
+- 脱敏后的相关日志。
 
-## 必须脱敏的内容
+### 必须脱敏的内容
 
-不要提交下列原始数据：
+请勿提交下列包含敏感信息的原始数据：
+- `config.json` 配置文件；
+- 日志文件；
+- 包含个人真实路径、用户名、Token、密钥的环境变量或命令行参数。
 
-- `~/Library/Application Support/总控台/config.json{,.bak}`；
-- `~/Library/Logs/总控台/` 中的日志；
-- 完整 shell 命令、个人工作目录、用户名和主目录路径；
-- PID、进程启动 token、访问令牌、密钥或环境变量；
-- 用户上传图标或其他不具备公开授权的文件。
+### 项目安全边界
 
-请使用 `/Users/example/project`、`TOKEN_REDACTED` 等明确占位符，并在提交前复核截图和录屏。
-
-## 项目安全边界
-
-- HTTP 服务只应绑定 `127.0.0.1`，不应直接或间接暴露到局域网或公网。
-- 本项目不是多用户权限系统，也不是远程管理面板。
-- 只有受信任的本地用户才能添加和执行命令。
-- 本地回环绑定不能替代 Host、Origin、控制令牌、当前 UID 和受控进程身份校验。
-
-修复准备公开前，维护者会尽量与报告者协调披露时间。请勿在修复可用前公开可直接利用的细节。
+- HTTP 服务仅绑定 `127.0.0.1`，严禁直接或间接暴露至局域网或公网。
+- 本项目非多用户权限系统，仅供受信任的本机当前用户使用。

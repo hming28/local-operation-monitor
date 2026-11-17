@@ -1,28 +1,51 @@
-# 社区行为规范
+# Contributor Code of Conduct / 社区行为规范
 
-总控台希望形成一个专业、友善、重视安全与证据的协作环境。参与 Issue、Pull Request、讨论、评审和其他项目空间，即表示同意遵守本规范。
+[English](#english) • [简体中文](#chinese)
 
-## 我们鼓励的行为
+---
 
-- 尊重不同经验、背景、观点和表达方式；
-- 围绕事实、复现步骤、代码和用户影响讨论问题；
-- 清楚区分建议、推断和已经验证的结论；
-- 接受建设性反馈，并给他人留出修正空间；
-- 主动保护贡献者和用户的隐私、本地路径、命令与日志；
-- 在安全或许可问题上宁可暂停发布，也不隐瞒风险。
+<a name="english"></a>
+## 🌐 English
 
-## 不可接受的行为
+Local Ops is dedicated to providing a welcoming, professional, and respectful environment for everyone, regardless of experience level, background, or identity.
 
-- 骚扰、侮辱、威胁、歧视或针对个人的攻击；
-- 未经允许公开他人的身份、联系方式、路径、日志、配置或其他私人信息；
-- 故意提交恶意代码、凭据、侵权素材或误导性的测试结果；
-- 借技术讨论持续纠缠、煽动冲突或破坏协作；
-- 在收到维护者停止要求后继续不当行为。
+### Expected Behavior
 
-## 执行
+- Demonstrate empathy and kindness toward others;
+- Be respectful of differing opinions, viewpoints, and experiences;
+- Give and gracefully accept constructive feedback;
+- Focus on what is best not just for any individual, but for the overall community and project security;
+- Safeguard the privacy and security of users and fellow contributors.
 
-维护者可以编辑、隐藏或删除违反本规范的内容，并根据严重程度给予提醒、临时限制或永久禁止参与。涉及安全漏洞、隐私或严重行为问题时，请使用 [`SECURITY.md`](SECURITY.md) 所述私密渠道联系维护者，不要在公开 Issue 中披露相关细节。
+### Unacceptable Behavior
 
-维护者处理报告时应尽量保护报告者和受影响人员的隐私，并说明采取的措施。对执行决定有异议时，可以通过同一私密渠道请求复核。
+- The use of sexualized language or imagery, and sexual attention or advances;
+- Trolling, insulting or derogatory comments, and personal or political attacks;
+- Public or private harassment;
+- Publishing others' private information, such as physical or electronic addresses, without explicit permission;
+- Deliberately injecting malicious code, misleading tests, or unverified claims.
 
-本规范适用于项目官方空间，以及个人明确代表本项目参与活动的场景。
+### Enforcement
+
+Community leaders have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned with this Code of Conduct.
+
+---
+
+<a name="chinese"></a>
+## 🇨🇳 简体中文
+
+总控台致力于营造一个友善、专业、尊重他人且重视安全的社区环境。
+
+### 我们倡导的行为
+
+- 尊重不同的背景、观点和经验；
+- 保持友好沟通，理性探讨技术问题；
+- 虚心接受建设性意见与反馈；
+- 主动保护贡献者与用户的隐私与安全。
+
+### 不可接受的行为
+
+- 人身攻击、侮辱、贬损或骚扰性言论；
+- 未经许可公开他人的个人信息或敏感隐私；
+- 故意提交恶意代码或虚假测试数据；
+- 破坏协作氛围的不当言行。
