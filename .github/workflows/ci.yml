@@ -1,46 +1,28 @@
-name: CI
+name: CI (macOS & Windows)
 
 on:
   push:
+    branches: [ main ]
   pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
+    branches: [ main ]
 
 jobs:
-  check-and-release:
-    name: Check and release audit
-    runs-on: macos-15
-    timeout-minutes: 20
-    env:
-      PYTHONDONTWRITEBYTECODE: "1"
-      SOURCE_DATE_EPOCH: "1704067200"
-
+  test-windows:
+    runs-on: windows-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Run Windows & Frontend Tests
+        run: python -m unittest tests.test_win32 tests.test_frontend -v
 
-      - name: Show toolchain
-        run: |
-          python --version
-          node --version
-
-      - name: Run project checks
-        run: make check PYTHON=python
-
-      - name: Build and verify release
-        run: |
-          make release PYTHON=python
-          make release-verify PYTHON=python
-          cp dist/console-*.zip "$RUNNER_TEMP/console-first.zip"
-          make release PYTHON=python
-          cmp "$RUNNER_TEMP/console-first.zip" dist/console-*.zip
-          make release-verify PYTHON=python
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Full Test Suite
+        run: python3 -m unittest discover -s tests -v

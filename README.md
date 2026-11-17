@@ -1,19 +1,22 @@
-# 总控台
+# 总控台 (Local Ops)
 
-**Preview / Alpha · 源码预览**
+**Win & macOS 双平台适配版 · 零依赖 Python 后端 + 原生前端**
 
-总控台是面向 macOS 的本地服务与批处理任务启动、运行监测工具：把常用项目命令、长期服务和一次性任务集中到本地网页中。后端是 Python 3 标准库单文件实现，前端是无构建、无 CDN 的原生 HTML/CSS/JavaScript，只绑定回环地址。
+总控台是面向 **Windows 与 macOS** 的本地服务与批处理任务启动、运行监测工具：把常用项目命令、长期服务和一次性任务集中到本地网页中。后端是 Python 3 标准库实现（纯原生 ctypes API，零第三方依赖），前端是无构建、无 CDN 的原生 HTML/CSS/JavaScript，只绑定本地回环地址。
 
-> 总控台只服务当前 Mac 和当前用户，不是远程运维、多人协作或公网管理面板。它能以当前用户权限执行你保存的命令，请勿通过反向代理、SSH 隧道或端口映射暴露到不受信任的网络。当前仍为 Preview / Alpha 阶段，接口、配置格式和安装方式可能调整；`总控台.app` 是项目内启动器，不是可单独复制的自包含应用。
+> 总控台只服务当前电脑和当前用户，不是远程运维、多人协作或公网管理面板。它能以当前用户权限执行你保存的命令，请勿通过反向代理、SSH 隧道或端口映射暴露到不受信任的网络。
 
 **📚 文档**：[使用手册](https://github.com/laogou717/local-ops/wiki/使用手册) · [数据与备份](https://github.com/laogou717/local-ops/wiki/数据与备份) · [故障排查](https://github.com/laogou717/local-ops/wiki/故障排查) · [开发者与发布指南](https://github.com/laogou717/local-ops/wiki/开发者与发布指南) · [Wiki 主页](https://github.com/laogou717/local-ops/wiki)
 
 ## 亮点
 
+- **跨平台原生支持**：Windows 10/11 与 macOS 双平台开箱即用，**100% 零第三方 pip 依赖**。
+- **孤儿进程彻底杜绝**：macOS 采用进程组 (`killpg`)，Windows 采用内核级 **Job Objects（作业对象）**，一键干净终止所有子进程树。
+- **进程指纹防复用**：Windows 下增加 `creationTime` 进程创建时间戳双重校验，杜绝 PID 快速复用导致的误杀误管风险。
+- **系统托盘与无黑框常驻**：Windows 下提供 `总控台.pyw`，纯原生 Win32 托盘图标，双击打开控制台，右键托盘优雅退出。
+- **快捷键动态自适应**：前端界面自动根据访客平台自适应展示（Mac 显示 `⌘K` / `⌘J`，Windows 显示 `Ctrl+K` / `Ctrl+J`）。
 - 每 2 秒查看当前用户本地监听服务的 CPU、内存、运行时长与**启动者溯源**（Codex/Claude 等 AI 助手、VS Code/Cursor 等编辑器、终端或总控台）。
-- 保存常用服务与批处理任务，集中启动、停止、重启、查日志与诊断；运行 token + 进程组 + UID 三重校验，不会因端口相同就杀掉外部进程。
 - 选择工作区文件夹后只读识别项目启动命令（Node/pnpm、Hexo、Django/FastAPI、Go、Rust、静态站点等），不安装依赖、不执行项目代码。
-- 新端口发现与一键加入启动台、全局命令面板 ⌘K、日志中心 ⌘J、Ops 指挥台单一主题（浅色/深色/跟随系统）、拖拽与键盘排序。
 
 ## 界面预览
 
@@ -25,19 +28,27 @@
 
 ## 快速开始
 
-**要求**：macOS 12 或更高、Python 3.12、支持 ES Modules 的现代浏览器；运行时仅使用 Python 标准库，无需安装任何第三方包。（`VERSION` 是项目版本的唯一权威来源，`Info.plist`、发行包名和发行说明应与它保持一致。）
+**系统要求**：Windows 10/11 或 macOS 12+，Python 3.12+，支持 ES Modules 的现代浏览器。无需安装任何第三方 pip 包。
 
-启动方式有三种，效果相同，按习惯选择：
+### Windows 启动方式
+
+| 方式 | 操作 | 适用场景 |
+| --- | --- | --- |
+| **后台托盘常驻（推荐）** | 双击 `总控台.pyw` | 日常使用。无控制台黑框，系统任务栏右下角生成托盘图标 |
+| **控制台脚本** | 双击 `start.bat` | 想在命令行窗口中实时查看启动日志与运行状态 |
+| **命令行启动** | `python server.py [--no-browser] [--preferred-port 9600]` | 终端或脚本化调试启动 |
+
+### macOS 启动方式
 
 | 方式 | 操作 | 适用场景 |
 | --- | --- | --- |
 | 双击应用 | 双击 `总控台.app` | 日常使用。后台运行，无 Terminal 窗口和 Dock 图标 |
 | 双击脚本 | 双击 `start.command` | 想在 Terminal 里看实时输出 |
-| 命令行 | `python3 server.py [--no-browser] [--preferred-port 9603]` | 调试、脚本化或远程 SSH 启动 |
+| 命令行 | `python3 server.py [--no-browser] [--preferred-port 9600]` | 调试或命令行启动 |
 
-首次打开互联网下载的 `总控台.app`，右键 → 打开（点「打开」），或执行 `xattr -dr com.apple.quarantine "总控台.app"`，只需一次。这是 macOS 对互联网下载应用的常规隔离提示，不是程序损坏；解压后请保持目录结构完整，不要单独移动 `总控台.app`。
+首次在 macOS 打开互联网下载的 `总控台.app`，如提示隔离，请执行 `xattr -dr com.apple.quarantine "总控台.app"` 即可。
 
-启动后自动打开 `http://127.0.0.1:9600`，被占则尝试 9601–9609。实际地址看顶栏「重启 :9600」按钮，或终端输出 / `~/Library/Logs/总控台/console.log`。
+启动后自动在默认浏览器中打开 `http://127.0.0.1:9600`（端口被占时自动递增到 9601–9609）。
 
 ## 使用
 

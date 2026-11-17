@@ -8,7 +8,7 @@ API 契约与实现要点见 AGENTS.md。
 """
 
 import glob
-import fcntl
+import sysops
 import functools
 import errno
 import json
@@ -34,9 +34,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
 LEGACY_DATA_DIR = os.path.join(BASE_DIR, "data")
-DEFAULT_DATA_DIR = os.path.expanduser(
-    "~/Library/Application Support/总控台")
-DEFAULT_LOGS_DIR = os.path.expanduser("~/Library/Logs/总控台")
+DEFAULT_DATA_DIR = sysops.default_data_dir()
+DEFAULT_LOGS_DIR = sysops.default_logs_dir()
 
 
 def resolve_runtime_dir(name, default):
@@ -101,12 +100,12 @@ LOG_BACKUPS = 3
 LOG_MAINTENANCE_SEC = 30
 STARTUP_PROBE_SEC = 0.25
 APP_STOP_TIMEOUT_SEC = 5.0
-RUN_TOKEN_ENV = "CONSOLE_RUN_TOKEN"
-RUN_TOKEN_ARG_PREFIX = "console-run:"
+RUN_TOKEN_ENV = sysops.RUN_TOKEN_ENV
+RUN_TOKEN_ARG_PREFIX = sysops.RUN_TOKEN_ARG_PREFIX
 TASK_CANCELED_EXIT_CODE = 130
 
 SELF_PID = os.getpid()
-SELF_UID = os.getuid()
+SELF_UID = sysops.current_user_id()
 ICON_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".ico")
 LOG = logging.getLogger("console")
 LOG_LOCK = threading.RLock()
@@ -118,7 +117,7 @@ def classify_task_exit(code):
     """把一次性任务的退出码归一为稳定的产品语义。"""
     if code == 0:
         return "succeeded"
-    if code == TASK_CANCELED_EXIT_CODE:
+    if code in sysops.TASK_CANCELED_EXIT_CODES:
         return "canceled"
     return "failed"
 
@@ -183,7 +182,7 @@ def _ensure_private_dir(path):
     if os.path.islink(path) or not os.path.isdir(path):
         raise OSError("私有运行路径不是安全目录: %s" % path)
     try:
-        os.chmod(path, 0o700)
+        sysops.ensure_private_dir(path)
     except OSError:
         LOG.warning("无法收紧目录权限: %s", path)
 
@@ -213,7 +212,7 @@ def _copy_private_regular_file(source, target):
                 os.close(target_fd)
     finally:
         os.close(source_fd)
-    os.chmod(target, 0o600)
+    sysops.set_private_file_mode(target)
     return True
 
 
@@ -228,7 +227,7 @@ def _install_migrated_directory(target, populate):
     staging = tempfile.mkdtemp(prefix=".console-migration-", dir=parent)
     installed = False
     try:
-        os.chmod(staging, 0o700)
+        sysops.ensure_private_dir(staging)
         populate(staging)
         try:
             os.rename(staging, target)
@@ -305,7 +304,7 @@ def prepare_runtime_storage():
     for path in (CONFIG_PATH, CONFIG_PATH + ".bak", INSTANCE_LOCK_PATH):
         try:
             if stat.S_ISREG(os.lstat(path).st_mode):
-                os.chmod(path, 0o600)
+                sysops.set_private_file_mode(path)
         except OSError:
             pass
     for directory in (ICONS_DIR, LOGS_DIR):
@@ -317,7 +316,7 @@ def prepare_runtime_storage():
             for entry in entries:
                 try:
                     if entry.is_file(follow_symlinks=False):
-                        os.chmod(entry.path, 0o600)
+                        sysops.set_private_file_mode(entry.path)
                 except OSError:
                     LOG.warning("无法收紧文件权限: %s", entry.path)
     return migration
@@ -330,7 +329,7 @@ def write_private_bytes(path, payload):
         f.write(payload)
         f.flush()
         os.fsync(f.fileno())
-    os.chmod(path, 0o600)
+    sysops.set_private_file_mode(path)
 
 
 # ---------------------------------------------------------------- 配置
@@ -532,61 +531,23 @@ class Config:
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, path)
-        os.chmod(path, 0o600)
+        sysops.set_private_file_mode(path)
 
 
 def acquire_instance_lock(path=INSTANCE_LOCK_PATH):
-    """Acquire the per-project process lock and keep its file object alive.
-
-    Port fallback alone is not a single-instance guarantee: two servers on
-    :9600/:9601 would still update the same config.  flock ties exclusivity to
-    this data directory and is released automatically if the process crashes.
-    """
-    directory = os.path.dirname(path) or "."
-    os.makedirs(directory, mode=0o700, exist_ok=True)
-    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
-    lock_file = os.fdopen(fd, "r+", encoding="ascii")
-    try:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError as e:
-        lock_file.close()
-        if e.errno in (errno.EACCES, errno.EAGAIN):
-            return None
-        raise
-    try:
-        os.fchmod(lock_file.fileno(), 0o600)
-        lock_file.seek(0)
-        lock_file.truncate()
-        lock_file.write("%d\n" % SELF_PID)
-        lock_file.flush()
-        os.fsync(lock_file.fileno())
-    except OSError:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-        lock_file.close()
-        raise
-    return lock_file
+    """Acquire an exclusive non-blocking lock on DATA_DIR/console.lock."""
+    return sysops.acquire_instance_lock(path, SELF_PID)
 
 
 def release_instance_lock(lock_file):
-    if lock_file is None:
-        return
-    try:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-    finally:
-        lock_file.close()
+    return sysops.release_instance_lock(lock_file)
 
 
 # ---------------------------------------------------------------- 子进程与解析
 
 def run_cmd(args, timeout=SUBPROCESS_TIMEOUT):
     """运行命令并返回 stdout；任何异常/超时都返回空串，绝不上抛。"""
-    try:
-        r = subprocess.run(args, capture_output=True, text=True,
-                           errors="replace", timeout=timeout)
-        return r.stdout or ""
-    except Exception:
-        LOG.exception("命令执行失败: %r", args)
-        return ""
+    return sysops.run_cmd(args, timeout=timeout, log=LOG)
 
 
 def parse_etime(s):
@@ -617,38 +578,8 @@ def _to_float(tok, default=0.0):
 
 
 def scan_listeners():
-    """lsof 监听快照 → {(pid, port): {bind_host, ...}}。
-
-    字典仍可像旧集合一样迭代/判断 ``(pid, port)``，同时保留监听地址，
-    供前端区分仅监听 ``::1`` 的服务（需通过 localhost 打开）。
-    """
-    out = run_cmd(["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n"])
-    found = {}
-    for line in out.splitlines():
-        if not line or line.startswith("COMMAND"):
-            continue
-        parts = line.split()
-        if len(parts) < 9:
-            continue
-        try:
-            pid = int(parts[1])
-        except ValueError:
-            continue
-        # NAME 列形如 *:8791 / 127.0.0.1:8080 / [::1]:8765，末尾可能跟 "(LISTEN)"
-        port = None
-        bind_host = None
-        for tok in reversed(parts):
-            m = re.search(r":(\d+)$", tok)
-            if m:
-                port = int(m.group(1))
-                bind_host = tok[:m.start()]
-                if bind_host.startswith("[") and bind_host.endswith("]"):
-                    bind_host = bind_host[1:-1]
-                break
-        if port is None:
-            continue
-        found.setdefault((pid, port), set()).add(bind_host or "")
-    return found
+    """监听快照 → {(pid, port): {bind_host, ...}}。"""
+    return sysops.scan_listeners(log=LOG)
 
 
 def listener_open_host(listeners, port, pids=None):
@@ -680,92 +611,17 @@ def listener_open_host(listeners, port, pids=None):
 
 
 def ps_snapshot(pids=None, with_uid=True):
-    """批量进程信息 → {pid: {"uid","comm","args","cpu","mem","etime"}}。
-
-    pids=None 表示全部进程（ps -ax）。解析：左边固定列 pid[/uid]/etime/cpu/mem，
-    其余部分（可含空格）即 comm；args 单独一次 ps 取。
-    注意：不能用 `comm=` 抑制表头——macOS ps 会把空表头列压到 16 字节截断
-    内容；保留表头后解析时跳过表头行即可（首列非数字的行）。
-    """
-    base = ["ps"]
-    if pids is None:
-        base.append("-ax")
-    else:
-        pids = [int(p) for p in pids]
-        if not pids:
-            return {}
-        base += ["-p", ",".join(str(p) for p in pids)]
-    # comm 必须放在最后一列：macOS ps 只保证最后一列不被定宽截断
-    # （comm 在中间列时会被压成约 16 字节，长路径被砍断）。
-    fields = ["pid"] + (["uid"] if with_uid else []) + \
-             ["etime", "%cpu", "%mem", "comm"]
-    out1 = run_cmd(base + ["-o", ",".join(fields)])
-    out2 = run_cmd(base + ["-o", "pid,args"])
-
-    snap = {}
-    fixed = 5 if with_uid else 4  # pid [uid] etime cpu mem 之后的都是 comm
-    for line in out1.splitlines():
-        toks = line.split()
-        if len(toks) < fixed + 1:
-            continue
-        try:
-            pid = int(toks[0])
-        except ValueError:
-            continue  # 表头行
-        i = 1
-        entry = {"args": ""}
-        if with_uid:
-            try:
-                entry["uid"] = int(toks[1])
-            except ValueError:
-                entry["uid"] = -1
-            i = 2
-        entry["etime"] = parse_etime(toks[i])
-        entry["cpu"] = _to_float(toks[i + 1])
-        entry["mem"] = _to_float(toks[i + 2])
-        entry["comm"] = " ".join(toks[i + 3:])
-        snap[pid] = entry
-    for line in out2.splitlines():
-        toks = line.split(None, 1)
-        if not toks:
-            continue
-        try:
-            pid = int(toks[0])
-        except ValueError:
-            continue
-        if pid in snap:
-            snap[pid]["args"] = toks[1] if len(toks) > 1 else ""
-    return snap
+    """批量进程信息 → {pid: {"uid","comm","args","cpu","mem","etime"}}。"""
+    return sysops.ps_snapshot(pids=pids, with_uid=with_uid, log=LOG)
 
 
 def lsof_cwds(pids):
-    """lsof -a -p <pids> -d cwd -Fn → {pid: cwd}。"""
-    pids = [int(p) for p in pids]
-    if not pids:
-        return {}
-    out = run_cmd(["lsof", "-a", "-p", ",".join(str(p) for p in pids),
-                   "-d", "cwd", "-Fn"])
-    result = {}
-    cur = None
-    for line in out.splitlines():
-        if line.startswith("p"):
-            try:
-                cur = int(line[1:])
-            except ValueError:
-                cur = None
-        elif line.startswith("n") and cur is not None:
-            result[cur] = line[1:]
-    return result
+    """工作目录快照 → {pid: cwd}。"""
+    return sysops.lsof_cwds(pids, log=LOG)
 
 
 def pid_alive(pid):
-    try:
-        os.kill(int(pid), 0)
-        return True
-    except PermissionError:
-        return True
-    except (OSError, ValueError, TypeError):
-        return False
+    return sysops.pid_alive(pid)
 
 
 # ---------------------------------------------------------------- 状态构建
@@ -874,19 +730,30 @@ _ORIGIN_BUNDLE_RE = re.compile(r"/([^/]+)\.app/Contents/MacOS/", re.I)
 _ORIGIN_MULTIPLEXERS = {"tmux": "tmux", "screen": "screen"}
 
 
+_ORIGIN_WIN_EXE_ALIASES = {
+    "code.exe": ("VS Code", "code"),
+    "cursor.exe": ("Cursor", "code"),
+    "trae.exe": ("Trae", "code"),
+    "windsurf.exe": ("Windsurf", "code"),
+    "zed.exe": ("Zed", "code"),
+    "pycharm64.exe": ("PyCharm", "code"),
+    "webstorm64.exe": ("WebStorm", "code"),
+    "idea64.exe": ("IDEA", "code"),
+    "goland64.exe": ("GoLand", "code"),
+    "windowsterminal.exe": ("Windows Terminal", "terminal"),
+    "wt.exe": ("Windows Terminal", "terminal"),
+    "alacritty.exe": ("Alacritty", "terminal"),
+    "wezterm-gui.exe": ("WezTerm", "terminal"),
+    "docker desktop.exe": ("Docker", "package"),
+    "ollama.exe": ("Ollama", "package"),
+    "claude.exe": ("Claude", "bot"),
+    "codex.exe": ("Codex", "bot"),
+}
+
+
 def origin_snapshot():
-    """ps -axo pid=,ppid=,args → {pid: (ppid, args)}，供来源溯源。"""
-    table = {}
-    for line in run_cmd(["ps", "-axo", "pid=,ppid=,args"]).splitlines():
-        toks = line.split(None, 2)
-        if len(toks) < 2:
-            continue
-        try:
-            pid, ppid = int(toks[0]), int(toks[1])
-        except ValueError:
-            continue
-        table[pid] = (ppid, toks[2] if len(toks) > 2 else "")
-    return table
+    """进程父子关系快照 → {pid: (ppid, args)}，供来源溯源。"""
+    return sysops.origin_snapshot(log=LOG)
 
 
 def attribute_origin(pid, table):
@@ -922,11 +789,15 @@ def attribute_origin(pid, table):
             label, icon = _ORIGIN_APP_ALIASES.get(
                 app_name.casefold(), (app_name, "package"))
             return {"label": label, "icon": icon}
-        base = os.path.basename(
-            parent_args.split()[0]).lstrip("-") if parent_args.split() else ""
+        _m_exe = re.match(r'^\s*"([^"]+)"|^\s*(\S+)', parent_args)
+        raw_tok = (_m_exe.group(1) or _m_exe.group(2) or "") if _m_exe else ""
+        base = os.path.basename(raw_tok.replace("\\", "/")).lstrip("-")
+        if base.casefold() in _ORIGIN_WIN_EXE_ALIASES:
+            label, icon = _ORIGIN_WIN_EXE_ALIASES[base.casefold()]
+            return {"label": label, "icon": icon}
         if base in _ORIGIN_MULTIPLEXERS:
             return {"label": _ORIGIN_MULTIPLEXERS[base], "icon": "terminal"}
-        if base and base not in _ORIGIN_SKIP_NAMES and candidate is None:
+        if base and base.casefold() not in _ORIGIN_SKIP_NAMES and base.casefold() not in {"cmd.exe", "pwsh.exe", "powershell.exe", "bash.exe", "sh.exe"} and candidate is None:
             candidate = {"label": base, "icon": "package"}
         cur = ppid
     return candidate
@@ -1021,20 +892,8 @@ def build_watched(keywords):
 
 
 def pgid_members_map():
-    """ps -axo pid=,pgid= → {pgid: [pid, ...]}。
-    进程退出后其子孙仍保留原 pgid（被 launchd 收养也不变），
-    因此按 pgid 能找到「脚本把服务放后台后自己退出」的存活成员。"""
-    groups = {}
-    for line in run_cmd(["ps", "-axo", "pid=,pgid="]).splitlines():
-        parts = line.split()
-        if len(parts) != 2:
-            continue
-        try:
-            pid, pgid = int(parts[0]), int(parts[1])
-        except ValueError:
-            continue
-        groups.setdefault(pgid, []).append(pid)
-    return groups
+    """受控进程组成员映射 → {pgid: [pid, ...]}。"""
+    return sysops.pgid_members_map(log=LOG)
 
 
 def _managed_candidates(app, groups):
@@ -1070,10 +929,16 @@ def managed_process_index(apps, groups=None):
         marker = RUN_TOKEN_ARG_PREFIX + token if token else None
         current_user = sorted(
             pid for pid in candidates.get(app.get("id"), set())
-            if snap.get(pid, {}).get("uid") == SELF_UID)
+            if sysops.is_same_user(snap.get(pid, {}).get("uid"), SELF_UID))
         controller_found = bool(marker and any(
             marker in snap.get(pid, {}).get("args", "") for pid in current_user))
         # 随机标记在进程组的常驻外层 shell 上；校验后整组均为受控后代。
+        expected_ctime = app.get("creationTime")
+        if expected_ctime and current_user:
+            root_pid = app.get("lastPid")
+            root_ctime = snap.get(root_pid, {}).get("ctime") if root_pid in snap else None
+            if root_ctime and root_ctime != expected_ctime:
+                controller_found = False
         result[app.get("id")] = current_user if controller_found else []
     return result, snap, groups
 
@@ -1410,55 +1275,19 @@ def list_themes():
 # ---------------------------------------------------------------- 进程/应用操作
 
 def process_uid(pid):
-    """返回进程 uid；进程不存在返回 None。"""
-    out = run_cmd(["ps", "-o", "uid=", "-p", str(int(pid))])
-    toks = out.split()
-    if not toks:
-        return None
-    try:
-        return int(toks[0])
-    except ValueError:
-        return None
+    """返回进程 uid/SID；进程不存在返回 None。"""
+    return sysops.process_uid(pid, log=LOG)
 
 
 def kill_process(pid, force):
     """结束单个进程；只允许当前用户的进程。返回 (ok, error)。"""
-    if pid == SELF_PID:
-        return False, "不能结束总控台自身进程"
-    uid = process_uid(pid)
-    if uid is None:
-        return False, "进程不存在"
-    if uid != SELF_UID:
-        return False, "只能结束当前用户的进程"
-    sig = signal.SIGKILL if force else signal.SIGTERM
-    try:
-        os.kill(pid, sig)
-    except ProcessLookupError:
-        return False, "进程不存在"
-    except PermissionError:
-        return False, "没有权限结束该进程"
-    except OSError as e:
-        return False, "结束失败: %s" % e
-    return True, None
+    return sysops.kill_process(pid, force, self_pid=SELF_PID, self_uid=SELF_UID, log=LOG)
 
 
 def stop_pid_tree(pid, sig=signal.SIGTERM):
-    """向受控进程组发信号；返回 (ok, error)。
-
-    ProcessLookupError means the target completed between validation and the
-    signal and is therefore an idempotent success. Permission and other OS
-    failures must never be swallowed: callers use them to retain management
-    identity instead of creating an orphan process.
-    """
-    try:
-        os.killpg(int(pid), sig)
-        return True, None
-    except ProcessLookupError:
-        return True, None
-    except PermissionError:
-        return False, "没有权限停止受控进程组"
-    except OSError as e:
-        return False, "停止受控进程组失败: %s" % e
+    """向受控进程组/作业对象发信号；返回 (ok, error)。"""
+    force = (sig == getattr(signal, "SIGKILL", 9))
+    return sysops.stop_pid_tree(pid, sig=sig, force=force)
 
 
 def app_running(app, listeners=None):
@@ -1471,36 +1300,8 @@ def app_alive_sign(app, listeners=None):
 
 
 def build_launch_env(token, environ=None):
-    """构建无 Terminal 启动时仍可找到常见开发工具的环境。
-
-    Finder/LSUIElement 启动的应用通常只有系统 PATH，不会读取用户 shell 配置；
-    因此显式补入 Homebrew、npm/pnpm、Volta、NVM、fnm 等常见目录。
-    """
-    env = dict(os.environ if environ is None else environ)
-    home = os.path.expanduser("~")
-    preferred = [
-        os.path.join(home, ".local", "bin"),
-        os.path.join(home, ".volta", "bin"),
-        os.path.join(home, ".bun", "bin"),
-        os.path.join(home, "Library", "pnpm"),
-        os.path.join(home, ".asdf", "shims"),
-        "/opt/homebrew/bin", "/opt/homebrew/sbin",
-        "/usr/local/bin", "/usr/local/sbin",
-    ]
-    preferred.extend(sorted(
-        glob.glob(os.path.join(home, ".nvm", "versions", "node", "*", "bin")),
-        reverse=True))
-    preferred.extend(sorted(
-        glob.glob(os.path.join(home, ".fnm", "node-versions", "*", "installation", "bin")),
-        reverse=True))
-    preferred.extend((env.get("PATH") or "").split(os.pathsep))
-    preferred.extend(("/usr/bin", "/bin", "/usr/sbin", "/sbin"))
-    seen = set()
-    env["PATH"] = os.pathsep.join(
-        path for path in preferred if path and not (path in seen or seen.add(path)))
-    env.setdefault("PNPM_HOME", os.path.join(home, "Library", "pnpm"))
-    env[RUN_TOKEN_ENV] = token
-    return env
+    """构建无 Terminal 启动时仍可找到常见开发工具的环境。"""
+    return sysops.build_launch_env(token, environ=environ)
 
 
 def start_app(app):
@@ -1510,32 +1311,26 @@ def start_app(app):
     rotate_log_file(log_path)
     cwd = app.get("cwd") or os.path.expanduser("~")
     try:
-        log_fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND,
-                         0o600)
-        os.fchmod(log_fd, 0o600)
+        log_fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        if not sysops.IS_WINDOWS:
+            os.fchmod(log_fd, 0o600)
         logf = os.fdopen(log_fd, "ab", buffering=0)
     except OSError as e:
         return False, "无法打开日志文件: %s" % e, None, None, None
     token = secrets.token_urlsafe(24)
     env = build_launch_env(token)
     marker = RUN_TOKEN_ARG_PREFIX + token
-    # 外层 shell 在 argv[0] 中持有随机标记并等待内层；内层等待用户命令
-    # 留下的后台作业。因此进程组既可验证，也不会因启动脚本过早退出而失去锚点。
-    outer_script = '/bin/bash -c "$1"\nconsole_status=$?\nexit "$console_status"'
-    inner_script = (app["command"] +
-                    '\nconsole_status=$?\nwait\nexit "$console_status"')
     try:
         header = "\n===== 启动于 %s =====\n" % time.strftime("%Y-%m-%d %H:%M:%S")
         logf.write(header.encode("utf-8"))
-        proc = subprocess.Popen(
-            ["/bin/bash", "-c", outer_script, marker, inner_script],
-            cwd=cwd, stdout=logf, stderr=subprocess.STDOUT,
-            start_new_session=True, env=env)
+        proc, pgid, extra = sysops.start_app_process(app["command"], cwd, env, logf, marker)
+        if extra and extra.get("creationTime"):
+            app["_pendingCreationTime"] = extra["creationTime"]
     except Exception as e:
         logf.close()
         return False, "启动失败: %s" % e, None, None, None
-    logf.close()  # 子进程已持有副本，父进程关闭避免 fd 泄漏
-    return True, None, proc, proc.pid, token
+    logf.close()
+    return True, None, proc, pgid, token
 
 
 def startup_failure_message(app_id, code):
@@ -1596,6 +1391,8 @@ def persist_started_app(cfg, app_id, proc, pgid, token):
             target["lastPgid"] = pgid
             target["runToken"] = token
             target["attached"] = False
+            if target.get("_pendingCreationTime"):
+                target["creationTime"] = target.pop("_pendingCreationTime")
             # 批处理任务运行时先保留上一次结果；自然退出或手动停止后再原子覆盖。
             if (target.get("kind") or "service") != "task":
                 target["lastExit"] = None
@@ -1634,39 +1431,16 @@ def stop_app_for_update(cfg, app, timeout=5.0):
 
 
 def pick_path(what):
-    """macOS 原生文件/目录选择框（osascript）。返回 (path|None, canceled)。"""
-    if what == "dir":
-        script = 'POSIX path of (choose folder with prompt "选择工作目录")'
-    else:
-        script = 'POSIX path of (choose file with prompt "选择批处理脚本")'
-    try:
-        r = subprocess.run(["osascript", "-e", script],
-                           capture_output=True, text=True, timeout=180)
-    except Exception:
-        return None, False
-    if r.returncode != 0:  # 用户按了取消（"User canceled."）
-        return None, True
-    return r.stdout.strip().rstrip("/") or None, False
+    """原生文件/目录选择框。返回 (path|None, canceled)。"""
+    return sysops.pick_path(what)
 
 
 def command_for_script(path):
-    """按脚本类型生成可直接保存的 shell 命令，并安全引用任意文件名。"""
-    normalized = os.path.abspath(os.path.expanduser(str(path)))
-    quoted = shlex.quote(normalized)
-    suffix = os.path.splitext(normalized)[1].lower()
-    if suffix == ".py":
-        return "python3 -- %s" % quoted
-    if suffix == ".zsh":
-        return "/bin/zsh -- %s" % quoted
-    if suffix in (".sh", ".bash"):
-        return "/bin/bash -- %s" % quoted
-    if os.access(normalized, os.X_OK):
-        return quoted
-    # .command 常见于 Finder 双击脚本；没有执行位时仍可明确交给 bash。
-    return "/bin/bash -- %s" % quoted
+    """按脚本类型生成可直接保存的命令。"""
+    return sysops.command_for_script(path)
 
 
-SCRIPT_SUFFIXES = {".py", ".sh", ".bash", ".zsh", ".command"}
+SCRIPT_SUFFIXES = sysops.SCRIPT_SUFFIXES
 SHELL_BUILTINS = {
     ".", ":", "[", "alias", "break", "cd", "command", "continue", "echo",
     "eval", "exec", "exit", "export", "false", "printf", "pwd", "read",
@@ -1727,7 +1501,7 @@ def _script_target(tokens, cwd):
             args = args[1:]
         candidate = next((arg for arg in args if not arg.startswith("-")), None)
         if candidate and (os.path.splitext(candidate)[1].lower() in SCRIPT_SUFFIXES
-                          or "/" in candidate):
+                          or "/" in candidate or "\\" in candidate):
             return (_resolve_command_path(candidate, cwd), False,
                     not os.path.isabs(os.path.expanduser(candidate)))
         return None, False, False
@@ -1747,7 +1521,7 @@ def _script_target(tokens, cwd):
         return None, False, False
 
     suffix = os.path.splitext(executable)[1].lower()
-    if suffix in SCRIPT_SUFFIXES or "/" in executable:
+    if suffix in SCRIPT_SUFFIXES or "/" in executable or "\\" in executable:
         return (_resolve_command_path(executable, cwd), True,
                 not os.path.isabs(os.path.expanduser(executable)))
     return None, False, False
@@ -2170,39 +1944,18 @@ def signal_app_stop(target, sig=signal.SIGTERM):
     ident = target["id"]
     if target["kind"] == "group":
         return stop_pid_tree(ident, sig)
-    try:
-        os.kill(ident, sig)
-        return True, None
-    except ProcessLookupError:
-        return True, None
-    except PermissionError:
-        return False, "没有权限停止受控进程"
-    except OSError as e:
-        return False, "停止受控进程失败: %s" % e
+    force = (sig == getattr(signal, "SIGKILL", 9))
+    return sysops.stop_single_pid(ident, sig=sig, force=force)
 
 
 def stop_target_alive(target, expected_uid=None):
     if target["kind"] == "group":
-        try:
-            os.killpg(target["id"], 0)
-            return True
-        except ProcessLookupError:
-            return False
-        except PermissionError:
-            return True
-        except OSError:
-            return True
-    try:
-        os.kill(target["id"], 0)
-        if expected_uid is None:
-            expected_uid = process_uid(target["id"])
-        return expected_uid == SELF_UID
-    except ProcessLookupError:
+        return sysops.group_alive(target["id"])
+    if not sysops.pid_alive(target["id"]):
         return False
-    except PermissionError:
-        return True
-    except OSError:
-        return True
+    if expected_uid is None:
+        expected_uid = process_uid(target["id"])
+    return sysops.is_same_user(expected_uid, SELF_UID)
 
 
 def stop_app_and_wait(app, timeout=APP_STOP_TIMEOUT_SEC, listeners=None):
@@ -2356,10 +2109,10 @@ def rotate_log_file(path, max_bytes=MAX_LOG_BYTES, backups=LOG_BACKUPS):
                 if os.path.exists(older):
                     os.replace(older, newer)
             shutil.copyfile(path, path + ".1")
-            os.chmod(path + ".1", 0o600)
+            sysops.set_private_file_mode(path + ".1")
             with open(path, "r+b") as f:
                 f.truncate(0)
-            os.chmod(path, 0o600)
+            sysops.set_private_file_mode(path)
             return True
         except OSError:
             LOG.exception("轮转日志失败: %s", path)
@@ -2604,7 +2357,7 @@ def diagnose_app(cfg, app):
     if m:
         add("pip-missing", "缺少 Python 包：%s" % m.group(1),
             "日志报 ModuleNotFoundError: No module named '%s'。" % m.group(1),
-            "建议在项目目录建虚拟环境再装：python3 -m venv .venv && .venv/bin/pip install %s" % m.group(1))
+            ("建议在项目目录建虚拟环境再装：python -m venv .venv && .venv\\Scripts\\pip install %s" if sysops.IS_WINDOWS else "建议在项目目录建虚拟环境再装：python3 -m venv .venv && .venv/bin/pip install %s") % m.group(1))
 
     if re.search(r"no such file or directory", log_lower) and not issues:
         add("file-missing", "命令里的文件/脚本不存在",
@@ -3930,10 +3683,10 @@ def launcher_main():
 
 def schedule_console_restart(server, preferred_port):
     """启动独立 helper，响应发出后关闭当前 HTTP 服务。"""
-    helper = subprocess.Popen(
+    helper = sysops.spawn_detached_helper(
         [sys.executable, os.path.abspath(__file__), "--restart-helper",
          str(SELF_PID), str(int(preferred_port))],
-        cwd=BASE_DIR, start_new_session=True, close_fds=True)
+        cwd=BASE_DIR)
 
     def _shutdown():
         time.sleep(0.25)
@@ -4006,7 +3759,8 @@ def redirect_console_output():
     path = os.path.join(LOGS_DIR, "console.log")
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
-        os.fchmod(fd, 0o600)
+        if not sysops.IS_WINDOWS:
+            os.fchmod(fd, 0o600)
         for stream in (sys.stdout, sys.stderr):
             try:
                 stream.flush()

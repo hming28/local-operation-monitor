@@ -1,3 +1,21 @@
+
+/* 平台快捷键文案自适应（macOS 显示 ⌘，Windows/Linux 显示 Ctrl+） */
+const _IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
+if (!_IS_MAC) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('kbd').forEach((el) => {
+      if (el.textContent && el.textContent.includes('⌘')) {
+        el.textContent = el.textContent.replace(/⌘/g, 'Ctrl+');
+      }
+    });
+    document.querySelectorAll('.hint').forEach((el) => {
+      if (el.textContent && el.textContent.includes('⌘')) {
+        el.textContent = el.textContent.replace(/⌘/g, 'Ctrl+');
+      }
+    });
+  });
+}
+
 'use strict';
 /* ============================================================
    app.js — 入口：视图切换 / 轮询 / 命令面板 / 总控台自身
@@ -435,7 +453,7 @@ function paletteActions() {
   items.push({
     icon: 'file-text',
     title: '打开日志中心',
-    hint: '日志 · ⌘J',
+    hint: _IS_MAC ? '日志 · ⌘J' : '日志 · Ctrl+J',
     run: openLogsCenter,
   });
   items.push({
