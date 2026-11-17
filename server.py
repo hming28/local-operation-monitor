@@ -91,6 +91,7 @@ APP_VERSION, VERSION_LOAD_ERROR = read_project_version()
 HOST = "127.0.0.1"
 PORT_START = 9600
 PORT_TRIES = 10
+CURRENT_PORT = None
 SUBPROCESS_TIMEOUT = 5          # lsof/ps 等子进程超时（秒）
 MAX_ICON_BYTES = 5 * 1024 * 1024
 MAX_JSON_BYTES = 1 * 1024 * 1024
@@ -3725,21 +3726,29 @@ def _run_console(preferred_port=None, open_browser=True):
     start_log_maintenance()
     cfg = Config(CONFIG_PATH)
 
+    global CURRENT_PORT
     server, port = None, None
-    candidates = list(range(PORT_START, PORT_START + PORT_TRIES))
-    if isinstance(preferred_port, int) and preferred_port in candidates:
-        candidates.remove(preferred_port)
-        candidates.insert(0, preferred_port)
+    candidates = []
+    if isinstance(preferred_port, int) and 1 <= preferred_port <= 65535:
+        candidates.append(preferred_port)
+    for p in range(PORT_START, PORT_START + PORT_TRIES):
+        if p not in candidates:
+            candidates.append(p)
+    # 备用端口段：当默认 9600-9609 被占用或处于 Windows Hyper-V / WSL 保留端口段时自动回退
+    for base in (19600, 29600, 8765):
+        for p in range(base, base + 5):
+            if p not in candidates:
+                candidates.append(p)
     for p in candidates:
         try:
             server = ConsoleServer((HOST, p), Handler, cfg, p)
             port = p
+            CURRENT_PORT = p
             break
         except OSError:
             continue
     if server is None:
-        print("错误：端口 %d-%d 均被占用，无法启动。" %
-              (PORT_START, PORT_START + PORT_TRIES - 1))
+        print("错误：候选端口均被占用或受系统策略限制，无法启动。")
         sys.exit(1)
 
     print("总控台已启动: http://%s:%d/  (Ctrl+C 停止)" % (HOST, port), flush=True)

@@ -79,7 +79,8 @@ def _run_tray_loop(port_holder):
         ]
 
     def open_ui():
-        port = port_holder[0] or 9600
+        import server
+        port = getattr(server, "CURRENT_PORT", None) or port_holder[0] or 19600
         webbrowser.open("http://127.0.0.1:%d/" % port)
 
     def wnd_proc(hwnd, msg, wparam, lparam):
