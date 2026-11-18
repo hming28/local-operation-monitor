@@ -100,6 +100,21 @@ class Win32BackendTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(base, "sysops_win32.py")))
         self.assertTrue(os.path.isfile(os.path.join(base, "sysops_posix.py")))
 
+    def test_start_app_process_executes_command_with_marker(self):
+        if not sysops_win32.IS_WINDOWS:
+            return
+        with tempfile.TemporaryDirectory() as td:
+            log_path = os.path.join(td, "test.log")
+            marker = "console-run:testtoken999"
+            with open(log_path, "wb") as logf:
+                proc, pid, extra = sysops_win32.start_app_process(
+                    "echo hello_win32", td, os.environ.copy(), logf, marker
+                )
+                proc.wait(timeout=5)
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            self.assertIn("hello_win32", content)
+
 
 if __name__ == "__main__":
     unittest.main()

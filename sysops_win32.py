@@ -782,7 +782,7 @@ def build_launch_env(token, environ=None):
 
 def start_app_process(command, cwd, env, logf, marker):
     # Inject run marker into cmd.exe title/subshell args so PEB CommandLine carries it
-    cmd_line = f'cmd.exe /d /s /c "rem {marker} & chcp 65001 >NUL & {command}"'
+    cmd_line = f'cmd.exe /d /s /c "(title {marker}) & (chcp 65001 >NUL) & {command}"'
     flags = CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
     proc = subprocess.Popen(
         cmd_line,
